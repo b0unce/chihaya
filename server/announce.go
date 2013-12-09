@@ -7,6 +7,7 @@ package server
 import (
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"path"
 	"strconv"
@@ -260,26 +261,40 @@ func requestedPeerCount(fallback int, pq *parsedQuery) int {
 }
 
 func requestedIP(r *http.Request, pq *parsedQuery) (string, error) {
-	if ip, ok := pq.Params["ip"]; ok {
-		return ip, nil
+	ip := ""
+	
+	// TODO: Make this a configurable option as it allows peers to set their peer address
+	if p_ip, ok := pq.Params["ip"]; ok {
+		ip = p_ip
 	}
-	if ip, ok := pq.Params["ipv4"]; ok {
-		return ip, nil
-	}
-	if xRealIPs, ok := pq.Params["X-Real-Ip"]; ok {
-		return string(xRealIPs[0]), nil
+	if p_ipv4, ok := pq.Params["ipv4"]; ok {
+		ip = p_ipv4
+        }
+	// TODO: Make this a configurable option as above but for load balancers instead
+	if xRealIp := r.Header.Get("X-Real-Ip"); xRealIp != "" {
+		ip = xRealIp
 	}
 
-	portIndex := len(r.RemoteAddr) - 1
-	for ; portIndex >= 0; portIndex-- {
-		if r.RemoteAddr[portIndex] == ':' {
-			break
-		}
+	// If the IP has not matched the user or proxy provided headers then use the socket information
+	if ip == "" {
+			portIndex := len(r.RemoteAddr) - 1
+			for ; portIndex >= 0; portIndex-- {
+					if r.RemoteAddr[portIndex] == ':' {
+							break
+					}
+			}
+			if portIndex != -1 {
+					ip = r.RemoteAddr[0:portIndex]
+			}
 	}
-	if portIndex != -1 {
-		return r.RemoteAddr[0:portIndex], nil
+	
+	// Validate that what we have is an actual IP address
+	if ip := net.ParseIP(ip); ip != nil {
+			fmt.Print("%s\n", ip)
+			return ip.String(), nil
+	} else {
+			return "", errors.New("Failed to parse IP address")
 	}
-	return "", errors.New("Failed to parse IP address")
 }
 
 func minInt(a, b int) int {
