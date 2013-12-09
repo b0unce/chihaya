@@ -290,7 +290,6 @@ func requestedIP(r *http.Request, pq *parsedQuery) (string, error) {
 	
 	// Validate that what we have is an actual IP address
 	if ip := net.ParseIP(ip); ip != nil {
-			fmt.Print("%s\n", ip)
 			return ip.String(), nil
 	} else {
 			return "", errors.New("Failed to parse IP address")
